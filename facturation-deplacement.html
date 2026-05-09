@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NarsaHome – Facturation HAD</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #f0f6f9;
+    --surface: #ffffff;
+    --accent: #2c6889;
+    --accent2: #27889a;
+    --accent-light: #d6eaf2;
+    --text: #1a2e38;
+    --text-muted: #5a7a8a;
+    --border: #c8dde6;
+    --danger: #c0392b;
+    --warn: #e8821a;
+    --shadow: 0 2px 20px rgba(44,104,137,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 22px 40px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+  header .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.7rem;
+    letter-spacing: -0.5px;
+  }
+  header .subtitle {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    font-weight: 300;
+    margin-top: 2px;
+  }
+  header .badge {
+    margin-left: auto;
+    background: var(--accent2);
+    color: white;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
+
+  /* STEP INDICATOR */
+  .steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 36px;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all 0.3s;
+  }
+  .step.active { background: var(--accent); color: white; }
+  .step.done { background: var(--accent-light); color: var(--accent); }
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: currentColor;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step.active .step-num { background: rgba(255,255,255,0.3); }
+  .step.done .step-num { background: var(--accent); color: white; }
+  .step-arrow { color: var(--border); font-size: 1.2rem; padding: 0 4px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .card h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .card .desc { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 24px; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--accent2);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--accent-light);
+    position: relative;
+  }
+  .upload-zone:hover { background: #b8d8e8; border-color: var(--accent); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .upload-zone p { font-size: 0.9rem; color: var(--accent); font-weight: 500; }
+  .upload-zone small { color: var(--text-muted); font-size: 0.8rem; }
+
+  .file-list { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .file-chip {
+    background: var(--accent-light);
+    border: 1px solid var(--accent2);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    color: var(--accent);
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 500;
+  }
+  .file-chip button {
+    background: none; border: none; cursor: pointer;
+    color: var(--danger); font-size: 1rem; line-height: 1;
+  }
+
+  /* MONTH SELECTOR */
+  .month-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 24px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .field select, .field input {
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field select:focus, .field input:focus { border-color: var(--accent2); }
+
+  /* BUTTONS */
+  .btn {
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #235c42; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,106,79,0.3); }
+  .btn-primary:disabled { background: #aaa; transform: none; box-shadow: none; cursor: not-allowed; }
+  .btn-secondary { background: var(--accent-light); color: var(--accent); border: 1.5px solid var(--accent2); }
+  .btn-secondary:hover { background: #b8d8e8; }
+  .btn-success { background: #27ae60; color: white; }
+  .btn-success:hover { background: #219a52; }
+
+  /* PROGRESS */
+  .progress-bar {
+    height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+    margin: 16px 0;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent2); border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .progress-text { font-size: 0.82rem; color: var(--text-muted); text-align: center; }
+
+  /* RESULTS TABLE */
+  .results-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+  }
+  .stats { display: flex; gap: 20px; flex-wrap: wrap; }
+  .stat {
+    background: var(--accent-light);
+    border-radius: 10px;
+    padding: 10px 18px;
+    text-align: center;
+  }
+  .stat .val { font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--accent); }
+  .stat .lbl { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+
+  .filter-row {
+    display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-row input {
+    padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; flex: 1; min-width: 180px;
+  }
+  .filter-row input:focus { border-color: var(--accent2); }
+  .filter-row select {
+    padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none;
+  }
+
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  thead { background: var(--accent); color: white; }
+  thead th { padding: 12px 16px; text-align: left; font-weight: 600; font-size: 0.82rem; letter-spacing: 0.3px; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: #f7fbf8; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 11px 16px; vertical-align: middle; }
+  .hopital-badge {
+    padding: 3px 10px; border-radius: 12px; font-size: 0.76rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .h-chu { background: #dbeafe; color: #1e40af; }
+  .h-chc { background: #fef3c7; color: #92400e; }
+  .h-chr { background: #fce7f3; color: #9d174d; }
+  .h-chba { background: #ede9fe; color: #4c1d95; }
+  .h-other { background: #f3f4f6; color: #374151; }
+  .dates-cell { font-size: 0.82rem; color: var(--text-muted); max-width: 280px; }
+  .days-count {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.2rem; color: var(--accent); font-weight: 700;
+  }
+  .edit-dates {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 8px; font-size: 0.8rem; cursor: pointer; color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .edit-dates:hover { border-color: var(--accent2); color: var(--accent); }
+  .del-row {
+    background: none; border: 1px solid #fca5a5; border-radius: 6px;
+    padding: 3px 8px; font-size: 0.8rem; cursor: pointer; color: #dc2626;
+    transition: all 0.15s; margin-left: 4px;
+  }
+  .del-row:hover { background: #fee2e2; }
+
+  /* EDIT MODAL */
+  .modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: white; border-radius: 16px; padding: 32px;
+    max-width: 480px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h3 { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--accent); margin-bottom: 6px; }
+  .modal p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
+  .modal textarea {
+    width: 100%; min-height: 80px; padding: 10px 14px;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    resize: vertical; outline: none;
+    margin-bottom: 16px;
+  }
+  .modal textarea:focus { border-color: var(--accent2); }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ALERT */
+  .alert {
+    padding: 14px 18px; border-radius: 10px; font-size: 0.88rem;
+    margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;
+  }
+  .alert-warn { background: #fef3c7; border: 1px solid #fbbf24; color: #78350f; }
+  .alert-info { background: var(--accent-light); border: 1px solid var(--accent2); color: var(--accent); }
+
+  .hidden { display: none !important; }
+
+  /* SECTION TITLES */
+  .section-tag {
+    display: inline-block;
+    background: var(--accent2);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+
+  .ignored-section {
+    margin-top: 24px; padding-top: 20px;
+    border-top: 1px dashed var(--border);
+  }
+  .ignored-section summary {
+    cursor: pointer; font-size: 0.85rem; color: var(--text-muted);
+    font-weight: 500; padding: 6px 0;
+  }
+  .ignored-list {
+    margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .ignored-chip {
+    background: #fff1f0; border: 1px solid #fca5a5;
+    border-radius: 8px; padding: 5px 12px;
+    font-size: 0.78rem; color: #b91c1c;
+  }
+
+  footer {
+    text-align: center; padding: 32px;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="data:image/png;base64,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" alt="NarsaHome" style="height:60px;width:60px;object-fit:contain;background:white;border-radius:50%;padding:4px;">
+  <div>
+    <div class="logo" style="font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.5rem;letter-spacing:0"><span style="color:white">NARSA</span><span style="color:#e8821a;font-style:italic">Home</span></div>
+    <div class="subtitle">Outil de facturation HAD automatisée</div>
+  </div>
+  <div class="badge">✦ Chimiothérapie à domicile</div>
+</header>
+
+<div class="container">
+
+  <!-- STEPS -->
+  <div class="steps">
+    <div class="step active" id="step1-ind"><span class="step-num">1</span> Upload PDF</div>
+    <div class="step-arrow">›</div>
+    <div class="step" id="step2-ind"><span class="step-num">2</span> Extraction</div>
+    <div class="step-arrow">›</div>
+    <div class="step" id="step3-ind"><span class="step-num">3</span> Vérification</div>
+    <div class="step-arrow">›</div>
+    <div class="step" id="step4-ind"><span class="step-num">4</span> Export Excel</div>
+  </div>
+
+  <!-- STEP 1: UPLOAD -->
+  <div id="section-upload">
+    <div class="card">
+      <div class="section-tag">Étape 1</div>
+      <h2>Importer l'agenda du mois</h2>
+      <p class="desc">Importez le ou les PDFs exportés depuis Google Agenda pour le mois à facturer.</p>
+
+      <div class="month-row">
+        <div class="field">
+          <label>Mois</label>
+          <select id="sel-month">
+            <option value="1">Janvier</option><option value="2">Février</option>
+            <option value="3">Mars</option><option value="4">Avril</option>
+            <option value="5">Mai</option><option value="6">Juin</option>
+            <option value="7">Juillet</option><option value="8">Août</option>
+            <option value="9">Septembre</option><option value="10">Octobre</option>
+            <option value="11">Novembre</option><option value="12">Décembre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Année</label>
+          <input type="number" id="sel-year" value="2026" min="2020" max="2030" style="width:100px">
+        </div>
+      </div>
+
+      <div class="upload-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".pdf" multiple>
+        <div class="upload-icon">📄</div>
+        <p>Cliquez ou glissez vos fichiers PDF ici</p>
+        <small>1 ou 2 fichiers PDF — export Google Agenda mensuel</small>
+      </div>
+      <div class="file-list" id="file-list"></div>
+
+      <div style="margin-top:24px">
+        <button class="btn btn-primary" id="btn-extract" disabled onclick="startExtraction()">
+          ⚡ Lancer l'extraction
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: PROGRESS -->
+  <div id="section-progress" class="hidden">
+    <div class="card">
+      <div class="section-tag">Étape 2</div>
+      <h2>Extraction en cours…</h2>
+      <p class="desc">Lecture et analyse du contenu de l'agenda.</p>
+      <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="progress-text" id="prog-text">Initialisation…</div>
+    </div>
+  </div>
+
+  <!-- STEP 3: RESULTS -->
+  <div id="section-results" class="hidden">
+    <div class="card">
+      <div class="section-tag">Étape 3</div>
+      <h2>Résultats — vérification</h2>
+      <p class="desc">Vérifiez les données extraites. Vous pouvez modifier les dates de chaque patient si nécessaire.</p>
+
+      <div class="results-header">
+        <div class="stats">
+          <div class="stat"><div class="val" id="stat-patients">0</div><div class="lbl">Patients</div></div>
+          <div class="stat"><div class="val" id="stat-seances">0</div><div class="lbl">Séances totales</div></div>
+          <div class="stat"><div class="val" id="stat-hopitaux">0</div><div class="lbl">Hôpitaux</div></div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <input type="text" id="filter-search" placeholder="🔍 Rechercher un patient…" oninput="renderTable()">
+        <select id="filter-hop" onchange="renderTable()">
+          <option value="">Tous les hôpitaux</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>Hôpital</th>
+              <th>Nom</th>
+              <th>Prénom</th>
+              <th>Traitement</th>
+              <th>CP</th>
+              <th>Infos</th>
+              <th>Dates HAD</th>
+              <th style="text-align:center">Nb jours</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+
+      <details class="ignored-section">
+        <summary id="ignored-summary">▶ Afficher les entrées ignorées (0)</summary>
+        <div class="ignored-list" id="ignored-list"></div>
+      </details>
+    </div>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="goBack()">← Recommencer</button>
+      <button class="btn btn-success" onclick="exportExcel()">⬇ Exporter Excel pour facturation</button>
+      <button class="btn btn-secondary" onclick="downloadRawText()" style="font-size:0.8rem;opacity:0.7">🐛 Télécharger texte brut (debug)</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3 id="modal-title">Modifier les dates</h3>
+    <p>Entrez les jours du mois séparés par des tirets ou des virgules (ex: 3-7-14-21 ou 3,7,14,21)</p>
+    <textarea id="modal-input" placeholder="ex: 3-7-14-21"></textarea>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveModal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<footer>NarsaHome asbl — Outil interne de facturation HAD · Données traitées localement</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let uploadedFiles = [];
+let patientsData = [];
+let ignoredEntries = [];
+let currentEditIdx = null;
+
+// ── FILE UPLOAD ──────────────────────────────────────────────
+const fileInput = document.getElementById('file-input');
+const dropZone = document.getElementById('drop-zone');
+
+fileInput.addEventListener('change', e => addFiles(Array.from(e.target.files)));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background = '#c8edd4'; });
+dropZone.addEventListener('dragleave', () => dropZone.style.background = '');
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.style.background = ''; addFiles(Array.from(e.dataTransfer.files)); });
+
+function addFiles(files) {
+  files.forEach(f => { if (f.type === 'application/pdf' && !uploadedFiles.find(x => x.name === f.name)) uploadedFiles.push(f); });
+  renderFileList();
+}
+
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  el.innerHTML = uploadedFiles.map((f, i) => `
+    <div class="file-chip">📄 ${f.name} <button onclick="removeFile(${i})">×</button></div>
+  `).join('');
+  document.getElementById('btn-extract').disabled = uploadedFiles.length === 0;
+}
+
+function removeFile(i) { uploadedFiles.splice(i, 1); renderFileList(); }
+
+// ── AUTO-SET MONTH ───────────────────────────────────────────
+const now = new Date();
+document.getElementById('sel-month').value = now.getMonth() + 1;
+document.getElementById('sel-year').value = now.getFullYear();
+
+// ── EXTRACTION ───────────────────────────────────────────────
+async function geocodeMissingCP(patients) {
+  // Cache to avoid duplicate requests for same address
+  const cache = {};
+  for (let i = 0; i < patients.length; i++) {
+    const p = patients[i];
+    if (!p.address) continue;
+    if (cache[p.address]) { p.cp = cache[p.address]; continue; }
+    try {
+      const query = encodeURIComponent(p.address + ', Belgique');
+      const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&limit=1&countrycodes=be`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
+      const data = await res.json();
+      if (data && data[0] && data[0].address) {
+        const pc = data[0].address.postcode;
+        if (pc) { p.cp = pc; cache[p.address] = pc; }
+      }
+    } catch (e) { /* silently fail */ }
+    // Respect Nominatim rate limit (1 req/sec)
+    await sleep(1100);
+  }
+}
+
+async function startExtraction() {
+  document.getElementById('section-upload').classList.add('hidden');
+  document.getElementById('section-progress').classList.remove('hidden');
+  setStep(2);
+
+  patientsData = [];
+  ignoredEntries = [];
+
+  const month = parseInt(document.getElementById('sel-month').value);
+  const year = parseInt(document.getElementById('sel-year').value);
+
+  let allText = '';
+  for (let fi = 0; fi < uploadedFiles.length; fi++) {
+    setProgress((fi / uploadedFiles.length) * 40, `Lecture PDF ${fi+1}/${uploadedFiles.length}…`);
+    const text = await extractPDFText(uploadedFiles[fi]);
+    allText += '\n' + text;
+  }
+
+  // Store raw text for debug
+  window._rawText = allText;
+
+  setProgress(50, 'Analyse des rendez-vous…');
+  const parsed = parseAgenda(allText, month, year);
+  patientsData = parsed.patients;
+  ignoredEntries = parsed.ignored;
+
+  // Geocode missing postal codes
+  const missingCP = patientsData.filter(p => !p.cp && p.address);
+  if (missingCP.length > 0) {
+    setProgress(70, `Recherche des codes postaux manquants (${missingCP.length})…`);
+    await geocodeMissingCP(missingCP);
+  }
+
+  setProgress(90, 'Préparation des résultats…');
+  await sleep(300);
+  setProgress(100, 'Terminé !');
+  await sleep(400);
+
+  showResults();
+}
+
+async function extractPDFText(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1 });
+    const pageWidth = viewport.width;
+    const content = await page.getTextContent();
+    const items = content.items;
+
+    // Group items by Y position (2px tolerance)
+    const lineMap = {};
+    items.forEach(item => {
+      if (!item.str.trim()) return;
+      const y = Math.round(item.transform[5] / 2) * 2;
+      const x = item.transform[4];
+      if (!lineMap[y]) lineMap[y] = [];
+      lineMap[y].push({ str: item.str, x });
+    });
+
+    // Sort Y descending, items within line by X ascending
+    // Keep full line (both columns) — we need "Agenda :" field for hospital fallback
+    const sortedY = Object.keys(lineMap).map(Number).sort((a, b) => b - a);
+    sortedY.forEach(y => {
+      const its = lineMap[y].sort((a, b) => a.x - b.x);
+      const lineText = its.map(it => it.str).join(' ').trim();
+      if (lineText) text += lineText + '\n';
+    });
+  }
+  return text;
+}
+
+function parseAgenda(text, month, year) {
+  const patients = {};
+  const ignored = [];
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  let currentDate = null;
+
+  const monthNames = {
+    'janv': 1, 'févr': 2, 'mars': 3, 'avr': 4, 'mai': 5, 'juin': 6,
+    'juil': 7, 'août': 8, 'sept': 9, 'oct': 10, 'nov': 11, 'déc': 12
+  };
+
+  const timeRe = /^(\d{1,2}(?::\d{2})?(?:am|pm))(?:\s*[-–]\s*(\d{1,2}(?::\d{2})?(?:am|pm)))?\s*[-–]?\s*/i;
+  const dateRe = /(?:lun|mar|mer|jeu|ven|sam|dim)\.\s+(\d{1,2})\s+(janv|févr|mars|avr|mai|juin|juil|août|sept|oct|nov|déc)\.?\s+(\d{4})/i;
+  const allDayRe = /^Toute la journ/i;
+  const hardIgnore = [
+    'annulé', 'annule',           // seul mot-clé d'annulation
+    'bio chu du jour',            // liste BIO du matin
+    'toute la journ',             // événements journée entière
+    'congé', 'conge',             // congés infirmières
+    'assemblée', 'visioconférence', 'visioconference',
+    'réunion', 'reunion', 'formation',
+  ];
+
+  const hopRe = /(CHU\s+AR(?:\s+Herstal)?|CHU|CHBA\s+Waremme|CHBA|CHC\s+Mont\s+L[eé]gia|CHC\s+Hermalle|CHC\s+Heusy|CHC\s+ML|CHC|CHR\s*Cita(?:delle)?|CHR\s*CITA(?:delle)?|CHRCITA|CHRVERV|CHRV|CHR\s*Verv(?:iers)?|CHR\s*Huy|CHRHUY)/i;
+
+  // Agenda field hospital mapping
+  const agendaHopMap = {
+    'chr verviers': 'CHR Verv', 'chr verv': 'CHR Verv',
+    'chr cita': 'CHR Cita', 'chr citadelle': 'CHR Cita',
+    'chr huy': 'CHR Huy',
+    'chba': 'CHBA', 'chba waremme': 'CHBA',
+    'chc mont légia': 'CHC ML', 'chc mont legia': 'CHC ML', 'chc': 'CHC ML',
+    'chc heusy': 'CHC Heusy',
+    'chc hermalle': 'CHC Hermalle',
+    'chu': 'CHU Lg', 'chu ar': 'CHU AR',
+  };
+
+  function normalizeHop(raw) {
+    const u = raw.toUpperCase().replace(/\s+/g,' ').trim();
+    if (u.startsWith('CHU AR')) return 'CHU AR';
+    if (u.startsWith('CHU')) return 'CHU Lg';
+    if (u.startsWith('CHBA')) return 'CHBA';
+    if (u.includes('HERMALLE')) return 'CHC Hermalle';
+    if (u.includes('HEUSY')) return 'CHC Heusy';
+    if (u.includes('CHC')) return 'CHC ML';
+    if (u.includes('CITA') || u === 'CHRCITA') return 'CHR Cita';
+    if (u === 'CHRV' || u === 'CHRVERV' || u.includes('VERV')) return 'CHR Verv';
+    if (u === 'CHRHUY' || u.includes('HUY')) return 'CHR Huy';
+    return raw.trim();
+  }
+
+  // Time/annotation pattern to strip after hospital
+  const annotRe = /^(dès\s+\d+[h:]\d*(?:am|pm)?|à\s+partir\s+de\s+\d+h?\d*|avt\s+\d+h?\d*|avant\s+\d+h?\d*|après\s+\d+h?\d*|entre\s+\d+h?\d*\s*(?:\/|et)\s*\d+h?\d*|\d{1,2}[hH]\d{0,2}\s*\/\s*\d{1,2}[hH]\d{0,2}|matin|soir|\d{1,2}[hH]\d{0,2}|mq\s*pm|pm\s*manquante|manqu[ea]\s*pm|manque\s*pm)\s*[-–]?\s*/i;
+
+  // Process lines: track current appointment and its Agenda: field
+  let currentRDV = null; // { line, date, cp }
+  let currentAgenda = null;
+
+  function processRDV(rdvLine, rdvDate, agendaField, cp = '', address = '') {
+    // Clean emojis first to check if there's real content
+    const emojiFlagRe = /[‼⚠️!🔴🟡⭐★•·\u{1F300}-\u{1FFFF}\uFE0F]+/gu;
+    const cleaned = rdvLine.replace(emojiFlagRe, ' ').replace(/\s+/g, ' ').trim();
+    
+    // After removing time range, if nothing left — skip
+    const timeRe2 = /^(\d{1,2}(?::\d{2})?(?:am|pm))(?:\s*[-–]\s*(\d{1,2}(?::\d{2})?(?:am|pm)))?\s*[-–]?\s*/i;
+    const afterTime = cleaned.replace(timeRe2, '').trim();
+    if (!afterTime) return;
+    const lineLower = rdvLine.toLowerCase();
+    // Match whole words only to avoid false positives (e.g. "Stoumont" containing "stop")
+    const isIgnored = hardIgnore.some(kw => {
+      const re = new RegExp('(^|[\\s\\-–])' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[\\s\\-–])', 'i');
+      return re.test(rdvLine);
+    });
+    if (isIgnored) {
+      ignored.push({ date: rdvDate, text: rdvLine });
+      return;
+    }
+
+    // Strip emojis
+    const flagMatches = rdvLine.match(emojiFlagRe);
+    const annotations = flagMatches ? [flagMatches.join('').trim()] : [];
+    let rest = rdvLine.replace(emojiFlagRe, ' ').replace(/\uFE0F/g, '').replace(/\s{2,}/g, ' ').trim();
+
+    // Remove time range
+    rest = rest.replace(timeRe, '').trim();
+
+    // Find hospital in line
+    const hMatch = rest.match(hopRe);
+    let hopital = '';
+
+    if (hMatch) {
+      const hopIdx = rest.search(hopRe);
+      if (hopIdx > 0) {
+        annotations.push(rest.slice(0, hopIdx).replace(/[-–\s]+$/, '').trim());
+      }
+      hopital = normalizeHop(hMatch[0]);
+      rest = rest.slice(rest.search(hopRe) + hMatch[0].length).replace(/^[\s\-–]+/, '').trim();
+    } else if (agendaField) {
+      // Use Agenda: field as fallback
+      const af = agendaField.toLowerCase().trim();
+      for (const [key, val] of Object.entries(agendaHopMap)) {
+        if (af.includes(key)) { hopital = val; break; }
+      }
+      // Everything before patient name = annotation
+      if (rest) annotations.push(rest.replace(/[-–\s]+$/, '').trim());
+      // rest is now just "NOM Prénom - Traitement" — we need to find it
+      // In this case the whole rest IS the patient info (no hospital prefix to remove)
+    }
+
+    if (!hopital) {
+      // No hospital found but not cancelled — include with warning in Infos
+      const key = `??||${rest.toUpperCase()}||`;
+      if (!patients[key]) {
+        patients[key] = { hopital: '?', nom: rest.substring(0, 40), prenom: '', treatment: '', infos: '⚠ Hôpital non détecté', dates: [] };
+      }
+      if (!patients[key].dates.includes(rdvDate)) patients[key].dates.push(rdvDate);
+      return;
+    }
+
+    // Strip time/annotation tokens after hospital
+    while (true) {
+      const am = rest.match(new RegExp('^' + annotRe.source, 'i'));
+      if (am) { annotations.push(am[1].trim()); rest = rest.slice(am[0].length).trim(); }
+      else break;
+    }
+
+    // Normalize spacing around + signs (avoid lookbehind for browser compatibility)
+    rest = rest.replace(/\+(?=[a-zA-ZÀ-ÿ])/g, '+ ').replace(/([a-zA-ZÀ-ÿ])\+/g, '$1 +');
+
+    // Now rest = "NOM Prénom - Traitement" (or "NOM PRÉNOM - Traitement")
+    // Split on " - " but be careful of names with dashes like "Jean-Marie"
+    // Strategy: find first " - " that is followed by what looks like a treatment (not a name continuation)
+    const dashSplit = rest.split(/\s+-\s+/);
+    
+    let rawName, treatment;
+    if (dashSplit.length < 2) {
+      // Can't split — use full rest as name, treatment unknown
+      rawName = rest.trim();
+      treatment = '?';
+      annotations.push('⚠ Format non reconnu');
+    } else {
+      rawName = dashSplit[0].trim();
+      treatment = dashSplit.slice(1).join(' - ').trim();
+    }
+
+    if (!rawName) rawName = '?';
+    if (!treatment) treatment = '?';
+
+    // Split name: consecutive ALL-CAPS words = NOM, rest = prénom
+    const nameWords = rawName.split(/\s+/);
+    let splitIdx = 0;
+    for (let j = 0; j < nameWords.length; j++) {
+      const w = nameWords[j].replace(/[-']/g, ''); // ignore dashes in names like JEAN-MARIE
+      if (w.length > 0 && w === w.toUpperCase() && /[A-ZÀÂÉÈÊËÎÏÔÙÛÜÇ]/.test(w)) {
+        splitIdx = j + 1;
+      } else break;
+    }
+    if (splitIdx === 0) splitIdx = 1;
+    const nom = nameWords.slice(0, splitIdx).join(' ');
+    const prenom = nameWords.slice(splitIdx).join(' ');
+
+    const infos = annotations.filter(a => a && a.length > 0).join(' | ');
+    // Key = hospital + nom + treatment (same patient, same treatment across days = one row)
+    const key = `${hopital}||${nom.toUpperCase()}||${treatment}`;
+
+    if (!patients[key]) {
+      // Check if same patient+hospital exists on same date with different treatment → merge treatments
+      const sameDayKey = Object.keys(patients).find(k => {
+        const p = patients[k];
+        return p.hopital === hopital && p.nom === nom.toUpperCase() && p.dates.includes(rdvDate) && k !== key;
+      });
+      if (sameDayKey) {
+        patients[sameDayKey].treatment += ' + ' + treatment;
+        if (infos && !patients[sameDayKey].infos.includes(infos)) {
+          patients[sameDayKey].infos = [patients[sameDayKey].infos, infos].filter(Boolean).join(' | ');
+        }
+        if (!patients[sameDayKey].cp && cp) patients[sameDayKey].cp = cp;
+        if (!patients[sameDayKey].address && address) patients[sameDayKey].address = address;
+        return;
+      }
+      patients[key] = { hopital, nom: nom.toUpperCase(), prenom, treatment, infos, cp, address, dates: [] };
+    } else {
+      // Update cp/address if missing
+      if (!patients[key].cp && cp) patients[key].cp = cp;
+      if (!patients[key].address && address) patients[key].address = address;
+    }
+    if (infos && patients[key].infos !== infos && !patients[key].infos.includes(infos)) {
+      patients[key].infos = [patients[key].infos, infos].filter(Boolean).join(' | ');
+    }
+    if (!patients[key].dates.includes(rdvDate)) {
+      patients[key].dates.push(rdvDate);
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Detect date header
+    const dm = line.match(dateRe);
+    if (dm) {
+      // Process any pending RDV
+      if (currentRDV) { processRDV(currentRDV.line, currentRDV.date, currentAgenda, currentRDV.cp || "", currentRDV.address || ""); currentRDV = null; currentAgenda = null; }
+      const dayNum = parseInt(dm[1]);
+      const monNum = monthNames[dm[2].toLowerCase()];
+      const yr = parseInt(dm[3]);
+      currentDate = (monNum === month && yr === year) ? dayNum : null;
+      continue;
+    }
+
+    if (!currentDate) continue;
+    if (allDayRe.test(line)) continue;
+
+    // Skip page headers, metadata lines
+    if (line.startsWith('Narsa ,') || line.startsWith('Narsa,') || 
+        line.startsWith('CHU Lg') || line.includes('CHC Hermalle,') || 
+        line.includes('CHC Hermalle , CHC Heusy')) continue;
+    if (line.startsWith('Lieu :') || line.startsWith('Description :') || line.startsWith('Créé par :')) {
+      // Extract postal code from Lieu field
+      if (line.startsWith('Lieu :') && currentRDV) {
+        const cpMatch = line.match(/\b([1-9]\d{3})(?:\b|\D)/);
+        if (cpMatch) {
+          currentRDV.cp = cpMatch[1];
+        } else {
+          // Store address for geocoding fallback
+          currentRDV.address = line.replace('Lieu :', '').trim();
+        }
+      }
+      continue;
+    }
+
+    // Detect "Agenda :" field (belongs to previous RDV) — ignore if it's the page header
+    if (line.startsWith('Agenda :')) {
+      const val = line.replace('Agenda :', '').trim();
+      if (!val.startsWith('Narsa') && !val.startsWith('CHU Lg') && !val.includes('CHC Hermalle')) currentAgenda = val;
+      continue;
+    }
+
+    // Detect new timed appointment
+    if (timeRe.test(line)) {
+      // Process previous RDV first
+      if (currentRDV) { processRDV(currentRDV.line, currentRDV.date, currentAgenda, currentRDV.cp || "", currentRDV.address || ""); }
+      // Check if content after time is empty — title may continue on next line
+      const afterTime = line.replace(timeRe, '').trim();
+      if (!afterTime) {
+        // Peek ahead: skip Lieu/Description lines to find the patient line
+        let nextLine = '';
+        let nextAddress = '';
+        let nextCP = '';
+        for (let j = i + 1; j < lines.length; j++) {
+          const nl = lines[j].trim();
+          if (!nl) continue;
+          if (nl.startsWith('Lieu :')) {
+            // Capture address/CP for this split RDV
+            const cpMatch = nl.match(/\b([1-9]\d{3})(?:\b|\D)/);
+            if (cpMatch) nextCP = cpMatch[1];
+            else nextAddress = nl.replace('Lieu :', '').trim();
+            continue;
+          }
+          if (nl.startsWith('Description :') || nl.startsWith('Créé par :') || nl.startsWith('Agenda :')) continue;
+          if (timeRe.test(nl) || dateRe.test(nl)) break;
+          nextLine = nl;
+          lines[j] = '';
+          break;
+        }
+        if (nextLine) {
+          const fullLine = line.trim() + ' ' + nextLine;
+          currentRDV = { line: fullLine, date: currentDate, cp: nextCP, address: nextAddress };
+        } else {
+          currentRDV = null;
+        }
+        currentAgenda = null;
+        continue;
+      }
+      currentRDV = { line, date: currentDate };
+      currentAgenda = null;
+      continue;
+    }
+  }
+
+  // Process last pending RDV
+  if (currentRDV) processRDV(currentRDV.line, currentRDV.date, currentAgenda, currentRDV.cp || "", currentRDV.address || "");
+
+  const result = Object.values(patients).map(p => ({
+    ...p, dates: p.dates.sort((a, b) => a - b)
+  }));
+  result.sort((a, b) => a.hopital.localeCompare(b.hopital) || a.nom.localeCompare(b.nom));
+  return { patients: result, ignored };
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = msg;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── SHOW RESULTS ─────────────────────────────────────────────
+function showResults() {
+  document.getElementById('section-progress').classList.add('hidden');
+  document.getElementById('section-results').classList.remove('hidden');
+  setStep(3);
+
+  // Stats
+  const totalSeances = patientsData.reduce((s, p) => s + p.dates.length, 0);
+  const hopitaux = new Set(patientsData.map(p => p.hopital));
+  document.getElementById('stat-patients').textContent = patientsData.length;
+  document.getElementById('stat-seances').textContent = totalSeances;
+  document.getElementById('stat-hopitaux').textContent = hopitaux.size;
+
+  // Populate hospital filter
+  const sel = document.getElementById('filter-hop');
+  sel.innerHTML = '<option value="">Tous les hôpitaux</option>';
+  [...hopitaux].sort().forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
+
+  // Ignored
+  document.getElementById('ignored-summary').textContent = `▶ Afficher les entrées ignorées (${ignoredEntries.length})`;
+  const iList = document.getElementById('ignored-list');
+  iList.innerHTML = ignoredEntries.map(e => `<div class="ignored-chip">Jour ${e.date || '?'} — ${e.text.substring(0, 80)}${e.text.length > 80 ? '…' : ''}</div>`).join('');
+
+  renderTable();
+}
+
+function getHopClass(hop) {
+  if (!hop) return 'h-other';
+  const u = hop.toUpperCase();
+  if (u.includes('CHU')) return 'h-chu';
+  if (u.includes('CHC')) return 'h-chc';
+  if (u.includes('CHR')) return 'h-chr';
+  if (u.includes('CHBA')) return 'h-chba';
+  return 'h-other';
+}
+
+function renderTable() {
+  const search = document.getElementById('filter-search').value.toLowerCase();
+  const hopFilter = document.getElementById('filter-hop').value;
+
+  const filtered = patientsData.filter((p, i) => {
+    p._idx = i;
+    const matchSearch = !search || p.nom.toLowerCase().includes(search) || p.prenom.toLowerCase().includes(search);
+    const matchHop = !hopFilter || p.hopital === hopFilter;
+    return matchSearch && matchHop;
+  });
+
+  const tbody = document.getElementById('results-tbody');
+  tbody.innerHTML = filtered.map(p => {
+    const idx = patientsData.indexOf(p);
+    const datesStr = p.dates.join(' - ');
+    const infoBadge = p.infos ? `<span style="font-size:0.75rem;color:var(--warn);font-weight:600">${p.infos}</span>` : '<span style="color:#ccc">—</span>';
+    const cpBadge = p.cp ? `<span style="font-size:0.82rem;font-weight:600;color:var(--accent)">${p.cp}</span>` : '<span style="color:#ccc">—</span>';
+    return `<tr>
+      <td><span class="hopital-badge ${getHopClass(p.hopital)}">${p.hopital}</span></td>
+      <td><strong>${p.nom}</strong></td>
+      <td>${p.prenom}</td>
+      <td style="color:var(--text-muted);font-size:0.82rem">${p.treatment}</td>
+      <td>${cpBadge}</td>
+      <td>${infoBadge}</td>
+      <td class="dates-cell">${datesStr || '<em style="color:#ccc">—</em>'}</td>
+      <td style="text-align:center"><span class="days-count">${p.dates.length}</span></td>
+      <td><button class="edit-dates" onclick="openModal(${idx})">✏ Modifier</button><button class="del-row" onclick="deleteRow(${idx})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── MODAL ────────────────────────────────────────────────────
+function deleteRow(idx) {
+  if (confirm('Supprimer cette ligne ?')) {
+    patientsData.splice(idx, 1);
+    const totalSeances = patientsData.reduce((s, p) => s + p.dates.length, 0);
+    document.getElementById('stat-patients').textContent = patientsData.length;
+    document.getElementById('stat-seances').textContent = totalSeances;
+    renderTable();
+  }
+}
+
+function openModal(idx) {
+  currentEditIdx = idx;
+  const p = patientsData[idx];
+  document.getElementById('modal-title').textContent = `${p.nom} ${p.prenom}`;
+  document.getElementById('modal-input').value = p.dates.join('-');
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+function saveModal() {
+  const raw = document.getElementById('modal-input').value;
+  const dates = raw.split(/[-,;\s]+/).map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 1 && d <= 31);
+  patientsData[currentEditIdx].dates = [...new Set(dates)].sort((a,b)=>a-b);
+  closeModal();
+  renderTable();
+  // Update stats
+  const totalSeances = patientsData.reduce((s, p) => s + p.dates.length, 0);
+  document.getElementById('stat-seances').textContent = totalSeances;
+}
+
+document.getElementById('modal-bg').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+// ── EXPORT EXCEL ─────────────────────────────────────────────
+function exportExcel() {
+  const month = parseInt(document.getElementById('sel-month').value);
+  const year = parseInt(document.getElementById('sel-year').value);
+  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const monthName = monthNames[month - 1];
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: Récap complet ──
+  const headers = ['Hôpital', 'NOM', 'Prénom', 'Traitement', 'CP', 'Infos', 'Date(s) HAD', 'Nombre de jours de TT/Mois'];
+  const rows = patientsData.map(p => [
+    p.hopital, p.nom, p.prenom, p.treatment, p.cp || '', p.infos || '',
+    p.dates.join('-'), p.dates.length
+  ]);
+
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [{wch:14},{wch:22},{wch:16},{wch:35},{wch:8},{wch:25},{wch:30},{wch:12}];
+
+  XLSX.utils.book_append_sheet(wb, ws, `Récap ${monthName} ${year}`);
+
+  // ── Sheet per hospital ──
+  const hopitaux = [...new Set(patientsData.map(p => p.hopital))].sort();
+  hopitaux.forEach(hop => {
+    const pts = patientsData.filter(p => p.hopital === hop);
+    const sheetData = [headers, ...pts.map(p => [hop, p.nom, p.prenom, p.treatment, p.cp||'', p.infos||'', p.dates.join('-'), p.dates.length])];
+    const wsH = XLSX.utils.aoa_to_sheet(sheetData);
+    wsH['!cols'] = [{wch:14},{wch:22},{wch:16},{wch:35},{wch:8},{wch:25},{wch:30},{wch:12}];
+    // Safe sheet name (max 31 chars)
+    const sheetName = hop.replace(/[\/\\\?\*\[\]]/g, '').substring(0, 28);
+    XLSX.utils.book_append_sheet(wb, wsH, sheetName);
+  });
+
+  const filename = `Facturation_HAD_${monthName}_${year}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  setStep(4);
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────
+function downloadRawText() {
+  const blob = new Blob([window._rawText || ''], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'agenda_texte_brut.txt';
+  a.click();
+}
+
+function goBack() {
+  document.getElementById('section-results').classList.add('hidden');
+  document.getElementById('section-upload').classList.remove('hidden');
+  uploadedFiles = [];
+  // Reset file input so same file can be selected again
+  const fi = document.getElementById('file-input');
+  fi.value = '';
+  renderFileList();
+  setStep(1);
+}
+
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`step${i}-ind`);
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+}
+</script>
+</body>
+</html>

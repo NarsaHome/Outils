@@ -117,6 +117,19 @@ footer{text-align:center;color:#ccc;font-size:.72rem;padding-bottom:24px}
   .legend-box,.nurse-id-bar{font-size:8pt}
 }
 .print-lh{display:none}
+
+  .back-btn {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--accent); color: white;
+    padding: 12px 20px; border-radius: 50px;
+    text-decoration: none; font-size: 0.88rem; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(44,104,137,0.35);
+    display: flex; align-items: center; gap: 8px;
+    z-index: 999; transition: all 0.2s;
+    font-family: "DM Sans", sans-serif;
+  }
+  .back-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(44,104,137,0.45); }
+
 </style>
 </head>
 <body>
@@ -563,4 +576,5 @@ function pEuro(s){return parseFloat(String(s).replace(',','.').replace(/\s/g,'')
 function fE(v){return(isNaN(v)?0:v).toFixed(2).replace('.',',')+' €';}
 </script>
 
+<a href="index.html" class="back-btn">← Portail NarsaHome</a>
 </body></html>
